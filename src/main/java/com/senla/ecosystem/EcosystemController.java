@@ -1,163 +1,143 @@
 package com.senla.ecosystem;
 
-import com.senla.AliveStatus;
-import com.senla.animal.*;
-import com.senla.environment.Water;
-import com.senla.environment.WeatherStatus;
-import com.senla.plant.BerryBush;
-import com.senla.plant.Grass;
-import com.senla.plant.Plant;
-import com.senla.plant.Tree;
+
+import com.senla.animal.Carnivore;
+import com.senla.animal.Herbivore;
+import com.senla.simulation.Simulation;
+import com.senla.utils.SimulationBuilder;
 import lombok.*;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-import java.util.stream.Collectors;
+import java.io.*;
+import java.util.*;
 
 
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
 public class EcosystemController {
 
-    private static Long id = 1L;
+//    private static Long nameGen = 1L;
+    private List<Simulation> simulations = new ArrayList<>();
 
-    private List<Herbivore> herbivores;
-    private List<Carnivore> carnivores;
-    private List<Plant> plants;
-    private Water water;
-    private WeatherStatus weatherStatus;
-    private Integer turnCounter = 0;
-
-    private Integer lastEventTurn = 0; // Track last event turn
-    private static final Integer MIN_EVENT_INTERVAL = 14; // Minimum 2 weeks
-    private static final Integer MAX_EVENT_INTERVAL = 4; // Maximum 4 days
-
-    public EcosystemController(int initialPlantAmount, int initialWaterAmount, WeatherStatus weatherStatus) {
-        this.herbivores = new ArrayList<>();
-        this.carnivores = new ArrayList<>();
-        this.plants = new ArrayList<>();
-        this.water = new Water(initialWaterAmount);
-        this.weatherStatus = weatherStatus;
-
-        plants.add(new Grass(initialPlantAmount));
-        plants.add(new BerryBush(initialPlantAmount));
-        plants.add(new Tree(initialPlantAmount));
-
-        for (int i = 0; i < 10; i++) {
-            herbivores.add(new Rabbit((id++).toString()));
-            herbivores.add(new Chipmunk((id++).toString()));
-        }
-        for (int i = 0; i < 1; i++) {
-            carnivores.add(new Wolf((id++).toString()));
-            carnivores.add(new Weasel((id++).toString()));
-        }
+    public EcosystemController(Simulation sampleSimulation) {
+        this.simulations.add(sampleSimulation);
     }
 
-    public void simulateTurn() {
-        turnCounter++;
-
-        // Check for global events
-        if (shouldTriggerEvent()) {
-            triggerGlobalEvent();
-        }
-
-        // Each carnivore tries to eat
-        double globalHungerMod = calculateGlobalHungerMod();
-
-        for (Carnivore carnivore : carnivores) {
-            carnivore.fulfillNeeds(herbivores, water); // Carnivores try to eat herbivores
-            carnivore.nextTurn(globalHungerMod);
-        }
-        for (Herbivore herbivore : new ArrayList<>(herbivores)) {
-            herbivore.fulfillNeeds(plants, water);
-            herbivore.nextTurn(globalHungerMod);
-        }
-
-
-        carnivores = evictDeadCarnivores(carnivores);
-        herbivores = evictDeadHerbivores(herbivores);
-
-
-        printEcosystemStatus();
+    public void addSimulation(Simulation simulation){
+        simulations.add(simulation);
     }
 
-    public void automaticSimultaion() throws InterruptedException {
-        while (!herbivores.isEmpty() || !carnivores.isEmpty()){
-            Thread.sleep(3000);
-            simulateTurn();
-        }
+    public void delSimulation(Long simulationId){
+        Simulation sim = simulations.stream().filter(s->s.getId().equals(simulationId)).findFirst()
+                .orElseThrow(()->new RuntimeException("Simulation Not found"));
+        simulations.remove(sim);
     }
 
-    private double calculateGlobalHungerMod(){
-        double mod = 1;
-        switch (weatherStatus){
-            case COLD: {
-                mod = 1.2;
-                break;
+    public void printSimulationState(Long simulationId){
+        Simulation sim = simulations.stream().filter(s->s.getId().equals(simulationId)).findFirst()
+                .orElseThrow(()->new RuntimeException("Simulation Not found"));
+        sim.printEcosystemStatus();
+    }
+
+    public void addHerbivore(Herbivore h, Long simulationId){
+        Simulation sim = simulations.stream().filter(s->s.getId().equals(simulationId)).findFirst()
+                .orElseThrow(()->new RuntimeException("Simulation Not found"));
+        sim.getHerbivores().add(h);
+    }
+
+    public void addCarnivore(Carnivore c, Long simulationId){
+        Simulation sim = simulations.stream().filter(s->s.getId().equals(simulationId)).findFirst()
+                .orElseThrow(()->new RuntimeException("Simulation Not found"));
+        sim.getCarnivores().add(c);
+    }
+
+    public void delCarnivoreByName(String name, Long simulationId){
+        Simulation sim = simulations.stream().filter(s->s.getId().equals(simulationId)).findFirst()
+                .orElseThrow(()->new RuntimeException("Simulation Not found"));
+        List<Carnivore> carnivores = sim.getCarnivores();
+        Carnivore carnivoreToDelete = carnivores.stream().filter(c -> c.getName().equals(name)).findFirst()
+                .orElseThrow(()->new RuntimeException("Carnivore Not Found"));
+        carnivores.remove(carnivoreToDelete);
+    }
+
+    public void delHerbivoreByName(String name, Long simulationId){
+        Simulation sim = simulations.stream().filter(s->s.getId().equals(simulationId)).findFirst()
+                .orElseThrow(()->new RuntimeException("Simulation Not found"));
+        List<Herbivore> herbivores = sim.getHerbivores();
+        Herbivore herbivoreToDelete = herbivores.stream().filter(c -> c.getName().equals(name)).findFirst()
+                .orElseThrow(()->new RuntimeException("Carnivore Not Found"));
+        herbivores.remove(herbivoreToDelete);
+    }
+
+
+    public void automaticSimulationStart(Long simulationId) throws InterruptedException {
+        Simulation simulation = simulations.stream().filter(s->s.getId().equals(simulationId)).findFirst()
+                .orElseThrow(()->new RuntimeException("No simulation found"));
+        for(int i = 0; i < 50; i++){
+            if(simulation.getHerbivores().isEmpty() && simulation.getCarnivores().isEmpty()) {
+                System.out.println("Simulation ended due to All extinction");
+                return;
             }
-            case WARM: {
-                mod = 0.9;
-                break;
+            Thread.sleep(50);
+            simulation.simulateTurn();
+        }
+        System.out.println("Automatic simulation paused for number of iterations depleted");
+    }
+
+    public void simulateOneTurn(Long simulationId) {
+        Simulation simulation = simulations.stream().filter(s->s.getId().equals(simulationId)).findFirst()
+                .orElseThrow(()->new RuntimeException("No simulation found"));
+        simulation.simulateTurn();
+    }
+
+    public void simulateNTurn(Long simulationId, Integer N) throws InterruptedException {
+        Simulation simulation = simulations.stream().filter(s->s.getId().equals(simulationId)).findFirst()
+                .orElseThrow(()->new RuntimeException("No simulation found"));
+
+        for(int i = 0; i < N; i++){
+            if(simulation.getHerbivores().isEmpty() && simulation.getCarnivores().isEmpty()) {
+                System.out.println("Simulation ended due to All extinction");
+                return;
             }
-            default:{
-                break;
+            Thread.sleep(100);
+            simulation.simulateTurn();
+        }
+    }
+
+    public Integer countSimulations(){
+        return simulations.size();
+    }
+
+    public Boolean exists(Long simulationId){
+        Optional<Simulation> simulation = simulations.stream().filter(s->s.getId().equals(simulationId)).findFirst();
+        return simulation.isPresent();
+    }
+
+    public void loadSimulationFromDb() {
+        try(Scanner scanner = new Scanner(new File("db.txt"))){
+            SimulationBuilder sb = new SimulationBuilder();
+            while (scanner.hasNextLine()) {
+                String line = scanner.nextLine();
+                sb.readSimulations(line);
             }
+            this.simulations = sb.getBuiltSimulations();
+            int a = 5;
+        } catch (Exception e) {
+            System.out.println("File not found - pls update file pos or smth else");
         }
-        return mod;
     }
 
-    private List<Carnivore> evictDeadCarnivores(List<Carnivore> carnivores){
-        return carnivores.stream().filter(a -> {
-            if(a.getStatus() == AliveStatus.ALIVE) return true;
-            System.out.println("Evicted carnivore dead: " + a.getName());
-            return false;
-        }).collect(Collectors.toList());
-    }
-    private List<Herbivore> evictDeadHerbivores(List<Herbivore> herbivores){
-        return herbivores.stream().filter(a -> {
-            if(a.getStatus() == AliveStatus.ALIVE) return true;
-            System.out.println("Evicted herbivore dead: " + a.getName());
-            return false;
-        }).collect(Collectors.toList());
-    }
-
-    private boolean shouldTriggerEvent() {
-        return (turnCounter - lastEventTurn >= MIN_EVENT_INTERVAL && new Random().nextBoolean());
-    }
-
-    private void triggerGlobalEvent() {
-        lastEventTurn = turnCounter;
-        String event = "";
-
-        switch (new Random().nextInt(3)) {
-            case 0:
-                water.increaseAmount(200);
-                event = "Rain has occurred! Water increased by 200.";
-                break;
-            case 1:
-                weatherStatus = WeatherStatus.COLD;
-                event = "The weather has turned cold.";
-                break;
-            case 2:
-                weatherStatus = WeatherStatus.WARM;
-                event = "The weather has turned warm.";
-                break;
+    public void writeAllStatesToFile(){
+        try(FileWriter fw = new FileWriter("db.txt")){
+            for(Simulation s: simulations){
+                fw.append("---\n");
+                fw.append(s.simulationToState());
+            }
+            fw.append("---");
+        } catch (IOException e) {
+            System.out.println("File not found - pls update file pos or smth else");
         }
-        System.out.println(event);
     }
 
-    private void printEcosystemStatus() {
-        System.out.println("\nEcosystem Status:");
-        for (Herbivore herbivore : herbivores) {
-            System.out.println(herbivore.getName() + " Health: " + herbivore.getHealth());
-        }
-        for (Carnivore carnivore : carnivores) {
-            System.out.println(carnivore.getName() + " Health: " + carnivore.getHealth());
-        }
-        System.out.println("Water Available: " + water.getAmount());
-        System.out.println("Current Temperature: " + weatherStatus);
-        System.out.println("------------------------");
-    }
 }

@@ -1,0 +1,10 @@
+---
+Id 0
+carnivore  wolf21 50.0 15 0 4 ALIVE 5 20 false false
+carnivore  weasel22 30.0 10 0 4 ALIVE 5 20 false false
+plant Grass 1910
+plant BerryBush 2000
+plant Tree 2000
+weather MODERATE
+water 1450
+---

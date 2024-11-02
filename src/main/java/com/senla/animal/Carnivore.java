@@ -1,31 +1,25 @@
 package com.senla.animal;
 
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
 import com.senla.AliveStatus;
 import com.senla.environment.Water;
 import lombok.*;
 
 import java.util.List;
 
-@EqualsAndHashCode(callSuper = true)
 @Getter
 @Setter
-@NoArgsConstructor
-@JsonTypeInfo(
-        use = JsonTypeInfo.Id.CLASS,
-        property = "type")
-@JsonSubTypes({
-        @JsonSubTypes.Type(value = Weasel.class, name = "weasel"),
-        @JsonSubTypes.Type(value = Wolf.class, name = "wolf")
-})
-public abstract class Carnivore extends Animal {
+public class Carnivore extends Animal {
+
+    public Carnivore(){}
 
     public Carnivore(String name, int defense) {
         super(name, defense);
     }
 
-    public abstract List<Class<? extends Animal>> getPreyTypes();
+    public Carnivore(Double health, Integer defense, Integer daysWithoutWater, Integer MAX_DAYS_WITHOUT_WATER, String name, AliveStatus status, Integer basicWaterConsumption, Integer basicHungerDamage, Boolean isHungry, Boolean isThirsty){
+        super(health, defense, daysWithoutWater, MAX_DAYS_WITHOUT_WATER, name, status, basicWaterConsumption, basicHungerDamage, isHungry, isThirsty);
+    }
 
     public void fulfillNeeds(List<Herbivore> preyList, Water waterSource){
         attemptEat(preyList);
@@ -34,7 +28,7 @@ public abstract class Carnivore extends Animal {
 
     private void attemptEat(List<Herbivore> preyList) {
         for (Animal prey : preyList) {
-            if (getPreyTypes().contains(prey.getClass()) && prey.isAlive()) {
+            if (prey.isAlive()) {
                 health -= prey.getDefense();
                 if (health <= 0) {
                     health = 0.0;
@@ -52,6 +46,10 @@ public abstract class Carnivore extends Animal {
             }
         }
         isHungry = true;
+    }
+    @Override
+    public String toSaveFormat(){
+        return "carnivore " + super.toSaveFormat();
     }
 
 }
